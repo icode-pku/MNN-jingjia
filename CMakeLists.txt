@@ -176,6 +176,7 @@ endif()
 # backend options
 option(MNN_METAL "Enable Metal" OFF)
 option(MNN_OPENCL "Enable OpenCL" OFF)
+option(MNN_OPENCL_JJW "Enable OpenCL JJW" ON)
 option(MNN_OPENGL "Enable OpenGL" OFF)
 option(MNN_VULKAN "Enable Vulkan" OFF)
 option(MNN_ARM82 "Enable ARM82" OFF)
@@ -185,6 +186,11 @@ option(MNN_CUDA "Enable CUDA" OFF)
 option(MNN_TENSORRT "Enable TensorRT" OFF)
 option(MNN_COREML "Enable CoreML" OFF)
 option(MNN_NNAPI "Enable NNAPI" OFF)
+
+if (MNN_OPENCL_JJW)
+    message(STATUS "MNN_OPENCL_JJW")
+    add_definitions(-DMNN_OPENCL_JJW)
+endif()
 
 option(MNN_CUDA_PROFILE "Enable CUDA profile" OFF)
 
