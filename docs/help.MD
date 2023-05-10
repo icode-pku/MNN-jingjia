@@ -17,6 +17,9 @@ cmake  -DCMAKE_BUILD_TYPE=Debug -DMNN_USE_SYSTEM_LIB=ON  -DMNN_BUILD_TRAIN=ON -D
 # max_release
 cmake  -DCMAKE_BUILD_TYPE=Release -DMNN_USE_SYSTEM_LIB=ON  -DMNN_BUILD_TRAIN=ON -DMNN_BUILD_DEMO=ON -DMNN_BUILD_TOOLS=ON -DMNN_BUILD_QUANTOOLS=ON -DMNN_EVALUATION=ON -DMNN_BUILD_CONVERTER=ON -DMNN_DEBUG_MEMORY=ON -DMNN_DEBUG_TENSOR_SIZE=ON -DMNN_GPU_TRACE=ON -DMNN_OPENCL=ON -DMNN_BUILD_BENCHMARK=ON -DMNN_BUILD_TEST=ON -DMNN_OPENCL_PROFILE=ON -DTFMODEL_OPTIMIZE=ON -DMNN_TRAIN_DEBUG=ON -DMNN_BUILD_OPENCV=ON -DMNN_USE_OPENCV=ON -DMNN_IMGPROC_COLOR=ON -DMNN_IMGPROC_GEOMETRIC=ON -DMNN_IMGCODECS=ON -DMNN_CALIB3D=OFF -DMNN_OPENCV_TEST=OFF ../..
 
+# max_release_time_profile
+cmake  -DCMAKE_BUILD_TYPE=Release -DMNN_USE_SYSTEM_LIB=ON  -DMNN_BUILD_TRAIN=ON -DMNN_BUILD_DEMO=ON -DMNN_BUILD_TOOLS=ON -DMNN_BUILD_QUANTOOLS=ON -DMNN_EVALUATION=ON -DMNN_BUILD_CONVERTER=ON -DMNN_DEBUG_MEMORY=ON -DMNN_DEBUG_TENSOR_SIZE=ON -DMNN_GPU_TRACE=ON -DMNN_OPENCL=ON -DMNN_BUILD_BENCHMARK=ON -DMNN_BUILD_TEST=ON -DMNN_OPENCL_PROFILE=ON -DTFMODEL_OPTIMIZE=ON -DMNN_TRAIN_DEBUG=ON -DMNN_BUILD_OPENCV=ON -DMNN_USE_OPENCV=ON -DMNN_IMGPROC_COLOR=ON -DMNN_IMGPROC_GEOMETRIC=ON -DMNN_IMGCODECS=ON -DMNN_CALIB3D=OFF -DMNN_OPENCV_TEST=OFF -DMNN_OPENCL_PROFILE=ON ../..
+
 # min_debug
 cmake -DCMAKE_BUILD_TYPE=Debug -DMNN_USE_SYSTEM_LIB=ON -DMNN_BUILD_DEMO=ON -DMNN_OPENCL=ON -DMNN_BUILD_OPENCV=ON -DMNN_IMGCODECS=ON ../..
 # min_release
@@ -52,8 +55,6 @@ python ../../tools/script/testMNNFromTflite.py ../../resource/zhouhao03/segment/
 
 # yolo
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/aarch64-linux-gnu/mwv207-fixed/
-./timeProfile.out /home/zhouhao/github/MNN/zhdata/yolov5_jjw/yolov5s.mnn
-./yolov5s_jjw.out /home/zhouhao/github/MNN/zhdata/yolov5_jjw/000070.jpg
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/aarch64-linux-gnu/mwv207-fixed/
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/aarch64-linux-gnu/mwv207-fixed/
 export LD_PRELOAD=/opt/mwv207-compute/clPerfTools/lib/libOpenCL.so.1.2 
@@ -64,10 +65,23 @@ export CLI_ChromePerformanceTimingInStages=1
 export CLI_ChromePerformanceTimingPerKernel=1
 export CLI_LogToFile=1 
 export CLI_DumpDir=/home/zhouhao/github/zhouhao03/MNN-dev/build/clperf/
-./yolov5s_jjw.out /home/zhouhao/github/MNN/zhdata/yolov5_jjw/000070.jpg
 
 ./timeProfile.out ../../resource/zhouhao03/yolov5_jjw/yolov5s.mnn
-./yolov5s_jjw.out ../../resource/zhouhao03/yolov5_jjw/000070.jpg
-
+// cpu
+./yolov5s_jjw.out ../../resource/zhouhao03/yolov5_jjw/000070.jpg 0 1 0
+./yolov5s_jjw.out ../../resource/zhouhao03/yolov5_jjw/000070.jpg 0 4 0
+// opencl 
+// fp32 buffer image
+./yolov5s_jjw.out ../../resource/zhouhao03/yolov5_jjw/000070.jpg 3 68 0
+./yolov5s_jjw.out ../../resource/zhouhao03/yolov5_jjw/000070.jpg 3 132 0
+// fp16
+./yolov5s_jjw.out ../../resource/zhouhao03/yolov5_jjw/000070.jpg 3 68 2
+./yolov5s_jjw.out ../../resource/zhouhao03/yolov5_jjw/000070.jpg 3 132 2
 # common
 ./getPerformance
+
+// 需增加dlopen(libMNN.so)
+./MNNV2Basic.out ../../resource/zhouhao03/yolov5_jjw/yolov5s.mnn 1 0 3 >> yolov5_MNNV2Basic.txt
+./MNNV2Basic.out ../../resource/zhouhao03/yolov5_jjw/yolov5s.mnn 100 0 3 >> MNNV2Basic.txt
+
+./ModuleBasic.out ../../resource/zhouhao03/yolov5_jjw/yolov5s.mnn 1 0 3 >> yolov5_ModuleBasic.txt
