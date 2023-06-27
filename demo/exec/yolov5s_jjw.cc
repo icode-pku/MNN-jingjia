@@ -14,6 +14,8 @@
 #include <MNN/MNNForwardType.h>
 #include <MNN/Tensor.hpp>
 
+#include "CL/cl2.hpp"
+
 #if 1
 inline float fast_exp(float x) {
   union {
@@ -199,7 +201,8 @@ cv::Mat draw_box(cv::Mat &cv_mat, std::vector<BoxInfo> &boxes,
 }
 
 int main(int argc, const char *argv[]) {
-  auto handle = dlopen("./source/backend/opencl/libMNN_CL.so", RTLD_NOW);
+  auto handle = dlopen("/home/zhouhao/github/zhouhao03/MNN-dev/build/min_debug/source/backend/opencl/libMNN_CL.so", RTLD_NOW);
+  // auto handle = dlopen("./source/backend/opencl/libMNN_CL.so", RTLD_NOW);
   if (handle == nullptr) {
     MNN_PRINT("dlopen libMNN_CL.so failed\n");
     return 0;
@@ -290,7 +293,36 @@ int main(int argc, const char *argv[]) {
   }
   printf("forward mode: %d\n", config.mode);
 
+  // 外部建立OpenCL Context
+  std::vector<cl::Platform> platforms;
+  cl_int res = cl::Platform::get(&platforms);
+  if (res != CL_SUCCESS) {
+    printf("clGetPlatformIDs error!\n");
+    return 0;
+  }
+  cl::Platform::setDefault(platforms[0]);
+  std::vector<cl::Device> gpuDevices;
+  res = platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &gpuDevices);
+  std::shared_ptr<cl::Device> mFirstGPUDevicePtr = std::make_shared<cl::Device>(gpuDevices[0]);
+  const std::string deviceName = mFirstGPUDevicePtr->getInfo<CL_DEVICE_NAME>();
+  const std::string deviceVersion = mFirstGPUDevicePtr->getInfo<CL_DEVICE_VERSION>();
+  std::shared_ptr<cl::Context> mContext = std::shared_ptr<cl::Context>(new cl::Context(std::vector<cl::Device>({*mFirstGPUDevicePtr}), nullptr, nullptr, nullptr, &res));
+  // MNN_CHECK_CL_SUCCESS(res, "context");
+  // if (res != CL_SUCCESS) {
+  //     mIsCreateError = true;
+  //     return;
+  // }
+  cl_command_queue_properties properties = 0;
+  std::shared_ptr<cl::CommandQueue> mCommandQueuePtr = std::make_shared<cl::CommandQueue>(*mContext, *mFirstGPUDevicePtr, properties, &res);
+  // MNN_CHECK_CL_SUCCESS(res, "commandQueue");
+  // if (res != CL_SUCCESS) {
+  //     mIsCreateError = true;
+  //     return;
+  // }
+  cl_command_queue cl_cq = mCommandQueuePtr.get()->get();
+
   MNN::BackendConfig backendConfig;
+  backendConfig.sharedContext = (void *)cl_cq;
   backendConfig.precision = MNN::BackendConfig::Precision_Low;
   if (argc > 4) {
     backendConfig.precision =
@@ -460,7 +492,7 @@ int main(int argc, const char *argv[]) {
     }
 
     cv::imwrite("/home/zhouhao/github/zhouhao03/MNN-dev/resource/zhouhao03/"
-                "yolov5_jjw/output_1.jpg",
+                "yolov5_jjw/output_new.jpg",
                 img_src);
 
     if (isVedio == 0)

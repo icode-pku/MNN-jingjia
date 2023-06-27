@@ -25,13 +25,19 @@ CLRuntime::CLRuntime(const Backend::Info& info){
 
     BackendConfig::PrecisionMode precision = BackendConfig::Precision_Normal;
     BackendConfig::PowerMode power         = BackendConfig::Power_Normal;
+    void *sharedContext = nullptr;
     if (nullptr != mInfo.user) {
         precision = mInfo.user->precision;
         power     = mInfo.user->power;
+        sharedContext = mInfo.user->sharedContext;
     }
 
     // Shader precision
-    mOpenCLRuntime.reset(new OpenCLRuntime(precision, mInfo.gpuMode));
+    if (nullptr == sharedContext) {
+        mOpenCLRuntime.reset(new OpenCLRuntime(precision, mInfo.gpuMode));
+    } else {
+        mOpenCLRuntime.reset(new OpenCLRuntime(precision, mInfo.gpuMode, sharedContext));
+    }
     //Whether runtimeError
     mCLRuntimeError = mOpenCLRuntime->isCreateError();
     mPrecision = precision;
