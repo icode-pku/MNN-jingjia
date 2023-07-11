@@ -84,12 +84,23 @@ ErrorCode GridSampleExecution::onResize(const std::vector<Tensor *> &inputs, con
 
 ErrorCode GridSampleExecution::onExecute(const std::vector<Tensor *> &inputs, const std::vector<Tensor *> &outputs) {
 #ifdef ENABLE_OPENCL_TIME_PROFILER
-    cl::Event event;
+    OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+    ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+    bool flag = false;
+    if (nullptr == profilingData) {
+        profilingData = new ProfilingData();
+        flag = true;
+    }
+    // cl::Event event;
     run3DKernelDefault(mKernel, mGlobalWorkSize, mLocalWorkSize,
-        mOpenCLBackend->getOpenCLRuntime(), &event);
+        mOpenCLBackend->getOpenCLRuntime(), &(profilingData->event));
 
-    int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
-    MNN_PRINT("kernel cost:%d    us GridSample\n", costTime);
+    GetProfilingTime(profilingData);
+    if (flag) {
+        delete profilingData;
+    }  
+    // int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
+    // MNN_PRINT("kernel cost:%d    us Deconv\n",costTime);
 #else
     run3DKernelDefault(mKernel, mGlobalWorkSize, mLocalWorkSize, mOpenCLBackend->getOpenCLRuntime());
 #endif

@@ -46,6 +46,7 @@ enum SvmType { FINE_BUFFER = 0, COARSE_BUFFER = 1, SVM_NONE = 2};
 class OpenCLRuntime {
 public:
     OpenCLRuntime(const BackendConfig::PrecisionMode precision, const int cl_mode);
+    OpenCLRuntime(const BackendConfig::PrecisionMode precision, const int cl_mode, void *share_context);
     ~OpenCLRuntime();
     OpenCLRuntime(const OpenCLRuntime &) = delete;
     OpenCLRuntime &operator=(const OpenCLRuntime &) = delete;
@@ -129,9 +130,11 @@ private:
     void setGpuMode(const int cl_mode_num);
 
 private:
-    std::shared_ptr<::cl::Context> mContext;
-    std::shared_ptr<::cl::Device> mFirstGPUDevicePtr;
-    std::shared_ptr<::cl::CommandQueue> mCommandQueuePtr;
+    void *share_context_ = nullptr;
+
+    std::shared_ptr<::cl::Context> mContext; // TODO
+    std::shared_ptr<::cl::Device> mFirstGPUDevicePtr; // TODO
+    std::shared_ptr<::cl::CommandQueue> mCommandQueuePtr; // TODO
     std::map<std::tuple<std::string, std::string>, ::cl::Program> mBuildProgramMap;
     uint64_t mGPUGlobalMemeryCacheSize;
     uint32_t mGPUComputeUnits;
@@ -155,9 +158,9 @@ private:
 #endif
     GpuMemObject mMemType = AUTO;
     CLTuneLevel mTuneLevel = Wide;
-    std::string mDeviceName;
+    std::string mDeviceName; // TODO
     bool isSetWorkGroupAttribute = false;
-    std::string mDefaultBuildParams;
+    std::string mDefaultBuildParams; // TODO
     float mFlops = 4.0f;
     bool mIsCreateError{false};
     

@@ -235,6 +235,219 @@ OpenCLRuntime::OpenCLRuntime(const BackendConfig::PrecisionMode precision, const
     }
 }
 
+OpenCLRuntime::OpenCLRuntime(const BackendConfig::PrecisionMode precision, const int cl_mode, void *share_context) {
+    share_context_ = share_context;
+#ifdef LOG_VERBOSE
+    MNN_PRINT("start OpenCLRuntime !\n");
+#endif
+    mDefaultBuildParams = " -cl-mad-enable";
+    std::vector<cl::Platform> platforms;
+    cl_int res = cl::Platform::get(&platforms);
+    MNN_CHECK_CL_SUCCESS(res, "getPlatform");
+    // if(platforms.size() > 0 && res == CL_SUCCESS){
+    if(platforms.size() > 0 && res == CL_SUCCESS && share_context != nullptr){
+        // cl::Platform::setDefault(platforms[0]);
+        // std::vector<cl::Device> gpuDevices;
+        // res = platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &gpuDevices);
+        cl_command_queue share_cl_command_queue = (cl_command_queue)share_context;
+        // TODO TRUE OR FALSE
+        mCommandQueuePtr = std::make_shared<cl::CommandQueue>(share_cl_command_queue, true);
+        // if(1 <= gpuDevices.size() && res == CL_SUCCESS){
+        if(mCommandQueuePtr != nullptr){
+            // mFirstGPUDevicePtr              = std::make_shared<cl::Device>(gpuDevices[0]);
+            mFirstGPUDevicePtr = std::make_shared<cl::Device>(mCommandQueuePtr->getInfo<CL_QUEUE_DEVICE>());
+            const std::string deviceName    = mFirstGPUDevicePtr->getInfo<CL_DEVICE_NAME>();
+            mDeviceName = deviceName;
+            const std::string deviceVersion = mFirstGPUDevicePtr->getInfo<CL_DEVICE_VERSION>();
+            std::map<std::string, MNN::MaliAr> maliArMap {
+                {"Mali-T860", MIDGARD},
+                {"Mali-T880", MIDGARD},
+                {"Mali-G31", BIFROST},
+                {"Mali-G51", BIFROST},
+                {"Mali-G52", BIFROST},
+                {"Mali-G71", BIFROST},
+                {"Mali-G72", BIFROST},
+                {"Mali-G76", BIFROST},
+                {"Mali-G57", VALHALL},
+                {"Mali-G68", VALHALL},
+                {"Mali-G77", VALHALL},
+                {"Mali-G78", VALHALL},
+                {"Mali-G310", VALHALL},
+                {"Mali-G510", VALHALL},
+                {"Mali-G610", VALHALL},
+                {"Mali-G615", VALHALL},
+                {"Mali-G710", VALHALL},
+                {"Mali-G715", VALHALL},
+            };
+        
+            const std::string deviceVendor  = mFirstGPUDevicePtr->getInfo<CL_DEVICE_VENDOR>();
+        //     cl_command_queue_properties properties = 0;
+
+        // #ifdef ENABLE_OPENCL_TIME_PROFILER
+        //     properties |= CL_QUEUE_PROFILING_ENABLE;
+        // #endif
+            cl_int res;
+            // if device is QUALCOMM's and version is 2.0 , set spacial optimized param
+
+            sscanf(deviceVersion.c_str(), "%*s%f%*s", &mCLVersion);
+            
+        #ifdef MNN_OPENCL_SVM_ENABLE
+            if(mCLVersion > 1.99f && (false == OpenCLSymbolsOperator::getOpenclSymbolsPtr()->isSvmError())) {
+                res = mFirstGPUDevicePtr->getInfo(CL_DEVICE_SVM_CAPABILITIES, &mSvmCapabilities);
+
+                #ifdef LOG_VERBOSE
+                if (res != CL_SUCCESS || mSvmCapabilities == 0) {
+                    MNN_PRINT("SVM capalibilties: NONE\n");
+                } else {
+                    if (mSvmCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER) {
+                        MNN_PRINT("SVM capalibilties: SVM_FINE_GRAIN_BUFFER\n");
+                        if (mSvmCapabilities & CL_DEVICE_SVM_ATOMICS) {
+                            MNN_PRINT("SVM capalibilties: SVM_ATOMICS\n");
+                        }
+                    } else if (mSvmCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) {
+                        MNN_PRINT("SVM capalibilties: SVM_COARSE_GRAIN_BUFFER\n");
+                    }
+                }
+                #endif
+            }
+        #endif
+            
+            if (deviceName == "QUALCOMM Adreno(TM)") {
+                mGpuType = ADRENO;
+                
+                // if device is QUALCOMM's and version is 2.0 , set spacial optimized param
+                //if Adreno version is less than Adreno512, donot set WorkGroupAttribute option
+                std::string adrenoVersion = deviceVersion.substr(deviceVersion.size()-3);
+                //printf("Adreno Version:%s\n", adrenoVersion.c_str());
+                if(mCLVersion > 1.99f && adrenoVersion >= "512") {
+                    isSetWorkGroupAttribute = true;
+                }
+            } else if (deviceName.find("Mali") != std::string::npos) {
+                mGpuType = MALI;
+                if(maliArMap.find(deviceName) != maliArMap.end()){
+                    mMaliAr = maliArMap[deviceName];
+                }else{
+                    mMaliAr = VALHALL;
+                }
+            } else if (deviceVendor.find("Advanced Micro Devices") != std::string::npos) {
+                // Radeon series GPU is main product of Advanced Micro Devices (AMD)
+                mGpuType = RADEON;
+                isSetWorkGroupAttribute = true;
+            } else if (deviceVendor.find("Intel") != std::string::npos) {
+                mGpuType = INTEL;
+                std::string opencl_c_version = mFirstGPUDevicePtr->getInfo<CL_DEVICE_OPENCL_C_VERSION>();
+                int version = 0;
+                for (auto s : opencl_c_version) {
+                    if (s >= '0' && s <= '9') {
+                        version += (s - '0');
+                        version *= 10;
+                    }
+                }
+                if (version >= 120) {
+                    mSupportedIntelSubgroup = true;
+                    uint32_t execution_units_count = mFirstGPUDevicePtr->getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+                    uint32_t num_threads_per_eu = mFirstGPUDevicePtr->getInfo<CL_DEVICE_NUM_THREADS_PER_EU_INTEL>();
+                    uint32_t maxThreadsPerExecutionUnit = num_threads_per_eu > 0 ? num_threads_per_eu : 7;
+                    mMaxThreadsPerDevice =  maxThreadsPerExecutionUnit * execution_units_count;
+                    mMaxWorkGroupSize = mFirstGPUDevicePtr->getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+                }
+            }
+            else {
+                mGpuType = OTHER;
+            }
+            const std::string extensions = platforms[0].getInfo<CL_PLATFORM_EXTENSIONS>();
+            bool isPriorityHint = (extensions.find("cl_khr_priority_hints") != std::string::npos);
+
+            if(mGpuType == ADRENO && !isPriorityHint){
+                std::vector<cl_context_properties> context_properties;
+                context_properties.reserve(5);
+                context_properties.push_back(CL_CONTEXT_PERF_HINT_QCOM);
+                context_properties.push_back(CL_PERF_HINT_HIGH_QCOM);
+                context_properties.push_back(CL_CONTEXT_PRIORITY_HINT_QCOM);
+                context_properties.push_back(CL_PRIORITY_HINT_LOW_QCOM);
+                context_properties.push_back(0);
+                // mContext = std::shared_ptr<cl::Context>(new cl::Context(std::vector<cl::Device>({*mFirstGPUDevicePtr}), context_properties.data(), nullptr, nullptr, &res));
+                mIsDeviceSupportedLowPower = true;
+            }else{
+                ;
+                // mContext = std::shared_ptr<cl::Context>(new cl::Context(std::vector<cl::Device>({*mFirstGPUDevicePtr}), nullptr, nullptr, nullptr, &res));
+            }
+            mContext = std::make_shared<cl::Context>(mCommandQueuePtr->getInfo<CL_QUEUE_CONTEXT>());
+            // MNN_CHECK_CL_SUCCESS(res, "context");
+            // if (res != CL_SUCCESS) {
+            //     mIsCreateError = true;
+            //     return;
+            // }
+            
+            mIsDeviceSupportedLowPower = (mIsDeviceSupportedLowPower || isPriorityHint);
+            
+//             #ifdef MNN_USE_LIB_WRAPPER
+//             if(isPriorityHint)
+//             {
+//                 if(true == OpenCLSymbolsOperator::getOpenclSymbolsPtr()->isPropError())
+//                 {
+//                     mIsCreateError = true;
+//                     return;
+//                 }
+
+//                 cl_queue_properties prop[] = {CL_QUEUE_PRIORITY_KHR, CL_QUEUE_PRIORITY_LOW_KHR,
+// #ifdef ENABLE_OPENCL_TIME_PROFILER
+//                     CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE,
+// #endif
+//                     0};
+//                 mCommandQueuePtr.reset(new cl::CommandQueue(clCreateCommandQueueWithProperties((*mContext).get(), (*mFirstGPUDevicePtr).get(), prop, &res)));
+//             }
+//             else
+//             #endif
+//             {
+//                 mCommandQueuePtr = std::make_shared<cl::CommandQueue>(*mContext, *mFirstGPUDevicePtr, properties, &res);
+//             }
+//             MNN_CHECK_CL_SUCCESS(res, "commandQueue");
+//             if (res != CL_SUCCESS) {
+//                 mIsCreateError = true;
+//                 return;
+//             }
+            
+            mFirstGPUDevicePtr->getInfo(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, &mGPUGlobalMemeryCacheSize);
+            mFirstGPUDevicePtr->getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &mGPUComputeUnits);
+            mFirstGPUDevicePtr->getInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, &mMaxFreq);
+            cl_device_fp_config fpConfig;
+            auto success = mFirstGPUDevicePtr->getInfo(CL_DEVICE_HALF_FP_CONFIG, &fpConfig);
+            mIsDeviceSupportedFP16     = CL_SUCCESS == success && fpConfig > 0;
+            
+            //set gpu mode, tuning level and memory object
+            setGpuMode(cl_mode);
+            
+            if(mMemType == AUTO) {
+                if(mGpuType == MALI || mGpuType == INTEL) {
+                    mMemType = BUFFER;
+                } else {
+                    mMemType = IMAGE;
+                }
+            }
+
+            auto permitFloat16 = false;
+            if (precision == BackendConfig::Precision_Low || (mMemType == BUFFER && precision == BackendConfig::Precision_Normal)) {//buffer mode not support Normal Precision yet
+                permitFloat16 = true;
+            }
+            mIsSupportedFP16 = mIsDeviceSupportedFP16 && permitFloat16;
+
+            if(getDeviceSupportsExtension(*(mFirstGPUDevicePtr.get()), "cl_arm_integer_dot_product_int8")){
+                mSupportDotInt8 = true;
+            }
+            if(getDeviceSupportsExtension(*(mFirstGPUDevicePtr.get()), "cl_arm_integer_dot_product_accumulate_int8")){
+                mSupportDotAccInt8 = true;
+            }
+        }else{
+            mIsCreateError = true;
+            //MNN_ASSERT(1 <= gpuDevices.size());
+        }
+    }else{
+        mIsCreateError = true;
+        MNN_ASSERT(platforms.size() > 0);
+    }
+}
+
 void OpenCLRuntime::setGpuMode(const int cl_mode_num) {
     int totalSet = 0;
     bool isSet = (cl_mode_num & MNN_GPU_MEMORY_BUFFER);

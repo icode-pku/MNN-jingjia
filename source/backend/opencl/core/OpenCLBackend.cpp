@@ -25,13 +25,19 @@ CLRuntime::CLRuntime(const Backend::Info& info){
 
     BackendConfig::PrecisionMode precision = BackendConfig::Precision_Normal;
     BackendConfig::PowerMode power         = BackendConfig::Power_Normal;
+    void *sharedContext = nullptr;
     if (nullptr != mInfo.user) {
         precision = mInfo.user->precision;
         power     = mInfo.user->power;
+        sharedContext = mInfo.user->sharedContext;
     }
 
     // Shader precision
-    mOpenCLRuntime.reset(new OpenCLRuntime(precision, mInfo.gpuMode));
+    if (nullptr == sharedContext) {
+        mOpenCLRuntime.reset(new OpenCLRuntime(precision, mInfo.gpuMode));
+    } else {
+        mOpenCLRuntime.reset(new OpenCLRuntime(precision, mInfo.gpuMode, sharedContext));
+    }
     //Whether runtimeError
     mCLRuntimeError = mOpenCLRuntime->isCreateError();
     mPrecision = precision;
@@ -251,6 +257,10 @@ OpenCLBackend::OpenCLBackend(std::shared_ptr<ImagePool>imgPool, std::shared_ptr<
         mBufferPool.reset(new BufferPool(mOpenCLRuntime->context(), CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR));
     }
     mMapMem = std::make_pair(0, nullptr);
+    
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+    profiling_result_ = std::make_shared<ProfileResult>();
+#endif
 }
 
 OpenCLBackend::~OpenCLBackend() {
@@ -498,6 +508,12 @@ void OpenCLBackend::onResizeEnd() {
 #endif
 }
 
+void OpenCLBackend::AddProfilingData(std::string layer, std::string op, double tmp_flops) {
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+    profiling_result_->AddProfilingData(layer, op, tmp_flops);
+#endif
+}
+
 void OpenCLBackend::onExecuteBegin() const {
     mOpenCLRuntime->mQueueCount = 0;
     mOpenCLRuntime->mKernelTime = 0;
@@ -505,6 +521,11 @@ void OpenCLBackend::onExecuteBegin() const {
 
 void OpenCLBackend::onExecuteEnd() const {
     mOpenCLRuntime->mQueueCount = 0;
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+    std::string profiling_data = profiling_result_->GetProfilingDataInfo();
+    MNN_PRINT("_________profiling_data_____________\n");
+    MNN_PRINT("%s\n", profiling_data.c_str());
+#endif
 }
 
 

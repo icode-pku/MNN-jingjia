@@ -157,13 +157,24 @@ ErrorCode DepthwiseConvExecution::onExecute(const std::vector<Tensor *> &inputs,
 #endif
 
 #ifdef ENABLE_OPENCL_TIME_PROFILER
-    cl::Event event;
+    OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+    ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+    bool flag = false;
+    if (nullptr == profilingData) {
+        profilingData = new ProfilingData();
+        flag = true;
+    }
+    // cl::Event event;
     runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize,
                 mOpenCLBackend->getOpenCLRuntime(),
-                &event);
+                &(profilingData->event));
     
-    int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
-    MNN_PRINT("kernel cost:%d    us DepthwiseConv\n",costTime);
+    GetProfilingTime(profilingData);
+    if (flag) {
+        delete profilingData;
+    }  
+    // int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
+    // MNN_PRINT("kernel cost:%d    us Deconv\n",costTime);
 #else
     runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize,
                 mOpenCLBackend->getOpenCLRuntime());

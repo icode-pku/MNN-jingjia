@@ -315,13 +315,23 @@ ErrorCode ConvWinograd::onExecute(const std::vector<Tensor*>& inputs, const std:
         /*Source Transform*/
         {
         #ifdef ENABLE_OPENCL_TIME_PROFILER
-            cl::Event event;
+            OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+            ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+            bool flag = false;
+            if (nullptr == profilingData) {
+                profilingData = new ProfilingData();
+                flag = true;
+            }
+            // cl::Event event;
             runKernel2D(mSourceTransform[b], mGWS_S[b], mLWS_S[b],
-                        mOpenCLBackend->getOpenCLRuntime(), &event);
-                    
-            int costTime0 = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
-            costTime += costTime0;
-            MNN_PRINT("kernel cost:%d    us ConvWino0\n",costTime0);
+                        mOpenCLBackend->getOpenCLRuntime(), &(profilingData->event));
+            GetProfilingTime(profilingData);
+            if (flag) {
+                delete profilingData;
+            }                    
+            // int costTime0 = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
+            // costTime += costTime0;
+            // MNN_PRINT("kernel cost:%d    us ConvWino0\n",costTime0);
             #else
                 runKernel2D(mSourceTransform[b], mGWS_S[b], mLWS_S[b],
                         mOpenCLBackend->getOpenCLRuntime());

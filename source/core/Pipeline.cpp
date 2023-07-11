@@ -980,6 +980,9 @@ ErrorCode Pipeline::execute() {
     for (auto& info : mInfo.second) {
         auto& buffer = info.executeBuffer;
         for (auto& cmdP : buffer.command) {
+            if (nullptr != cmdP->info.get()) {
+                mBackend->AddProfilingData(cmdP->info->name(), cmdP->info->type(), cmdP->info->flops());
+            }
             auto& cmd = *cmdP;
             auto code = cmd.execution->onExecute(cmd.workInputs, cmd.workOutputs);
             if (NO_ERROR != code) {
@@ -1012,6 +1015,7 @@ ErrorCode Pipeline::executeCallBack(const TensorCallBackWithInfo& before, const 
             }
             auto run   = before(cmd.inputs, cmd.info.get());
             if (run) {
+                // mBackend->addTimeProfle(cmd.info.get());
                 auto code = cmd.execution->onExecute(cmd.workInputs, cmd.workOutputs);
                 if (NO_ERROR != code) {
                     mBackend->onExecuteEnd();

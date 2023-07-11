@@ -23,12 +23,18 @@
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+#include <dlfcn.h>
 
 using namespace MNN;
 using namespace MNN::CV;
+
 using namespace MNN::Express;
 
 int main(int argc, const char* argv[]) {
+    /**
+     * 动态加载MNN_CL.so
+    */
+    auto handle = dlopen("/home/zhouhao/github/MNN/build/min/source/backend/opencl/libMNN_CL.so", RTLD_NOW);
     if (argc < 4) {
         MNN_PRINT("Usage: ./segment.out model.mnn input.jpg output.jpg\n");
         return 0;
@@ -39,7 +45,12 @@ int main(int argc, const char* argv[]) {
         MNN_ERROR("Invalid Model\n");
         return 0;
     }
+    /**
+     * 配置推理后端为OpenCL
+     */
     ScheduleConfig config;
+    config.type = MNN_FORWARD_OPENCL;
+    config.mode = MNN_GPU_TUNING_WIDE;
     auto session = net->createSession(config);
     auto input = net->getSessionInput(session, nullptr);
     auto shape = input->shape();
