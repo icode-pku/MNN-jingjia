@@ -201,12 +201,12 @@ cv::Mat draw_box(cv::Mat &cv_mat, std::vector<BoxInfo> &boxes,
 }
 
 int main(int argc, const char *argv[]) {
-  auto handle = dlopen("/home/zhouhao/github/zhouhao03/MNN-dev/build/min_debug/source/backend/opencl/libMNN_CL.so", RTLD_NOW);
+  // auto handle = dlopen("/home/zhouhao/github/zhouhao03/MNN-dev/build/max_release_time_profile/source/backend/opencl/libMNN_CL.so", RTLD_NOW);
   // auto handle = dlopen("./source/backend/opencl/libMNN_CL.so", RTLD_NOW);
-  if (handle == nullptr) {
-    MNN_PRINT("dlopen libMNN_CL.so failed\n");
-    return 0;
-  }
+  // if (handle == nullptr) {
+  //   MNN_PRINT("dlopen libMNN_CL.so failed\n");
+  //   return 0;
+  // }
   if (argc < 2) {
     MNN_PRINT("Usage: ./yolov5 input.jpg [forwardType] [precision] \n");
     return 0;
@@ -312,7 +312,7 @@ int main(int argc, const char *argv[]) {
   //     mIsCreateError = true;
   //     return;
   // }
-  cl_command_queue_properties properties = 0;
+  cl_command_queue_properties properties = CL_QUEUE_PROFILING_ENABLE;
   std::shared_ptr<cl::CommandQueue> mCommandQueuePtr = std::make_shared<cl::CommandQueue>(*mContext, *mFirstGPUDevicePtr, properties, &res);
   // MNN_CHECK_CL_SUCCESS(res, "commandQueue");
   // if (res != CL_SUCCESS) {

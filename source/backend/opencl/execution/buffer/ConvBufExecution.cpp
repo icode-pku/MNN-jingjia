@@ -882,10 +882,21 @@ ErrorCode ConvBufExecution::onExecute(const std::vector<Tensor *> &inputs, const
         }
         MNN_PRINT("kernel cost:%d    us total ConvBuf2DSub\n", costTime);
     } else {
-        cl::Event event;
-        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, mOpenCLBackend->getOpenCLRuntime(), &event);
-        int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
-        MNN_PRINT("kernel cost:%d    us ConvBuf2D\n",costTime);
+        OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+        ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+        bool flag = false;
+        if (nullptr == profilingData) {
+            profilingData = new ProfilingData();
+            flag = true;
+        }
+        // cl::Event event;
+        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, mOpenCLBackend->getOpenCLRuntime(), &(profilingData->event));
+        GetProfilingTime(profilingData);
+        if (flag) {
+            delete profilingData;
+        }
+        // int costTime = (int)runtime->getCostTime(&event);
+        // MNN_PRINT("kernel cost:%d    us %s%d\n",costTime, EnumNameOpType(mOpType), idx++);
     }  
 #else
     if (mUseSubgroup) {

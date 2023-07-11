@@ -109,11 +109,22 @@ ErrorCode MatMulBufExecution::onExecute(const std::vector<Tensor *> &inputs, con
     auto runtime = mOpenCLBackend->getOpenCLRuntime();
 
     #ifdef ENABLE_OPENCL_TIME_PROFILER
-        cl::Event event;
-        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, runtime, &event);
+        OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+        ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+        bool flag = false;
+        if (nullptr == profilingData) {
+            profilingData = new ProfilingData();
+            flag = true;
+        }
+        // cl::Event event;
+        runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, runtime, &(profilingData->event));
         
-        int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
-        MNN_PRINT("kernel cost:%d    us MatmulBuf\n",costTime);
+        GetProfilingTime(profilingData);
+        if (flag) {
+            delete profilingData;
+        }
+        // int costTime = (int)runtime->getCostTime(&event);
+        // MNN_PRINT("kernel cost:%d    us %s%d\n",costTime, EnumNameOpType(mOpType), idx++);
     #else
     runKernel2D(mKernel, mGlobalWorkSize, mLocalWorkSize, runtime, nullptr);
     #endif

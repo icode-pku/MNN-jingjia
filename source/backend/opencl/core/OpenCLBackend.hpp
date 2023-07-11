@@ -26,6 +26,7 @@
 #ifdef ENABLE_OPENCL_TIME_PROFILER
 #define MNN_OPEN_TIME_TRACE
 #include <MNN/AutoTime.hpp>
+#include "backend/opencl/core/OpenCLProfilingData.hpp"
 #endif
 
 namespace MNN {
@@ -93,6 +94,17 @@ public:
     virtual void onResizeBegin() override;
     virtual void onResizeEnd() override;
 
+    virtual void AddProfilingData(std::string layer, std::string op, double tmp_flops) override;
+#ifdef ENABLE_OPENCL_TIME_PROFILER    
+    ProfilingData *GetCurrentProfilingData() {
+        if (profiling_result_ == nullptr) {
+            MNN_ERROR("profiling_result_ is nullptr\n");
+            return nullptr;
+        }
+        return profiling_result_->GetCurrentProfilingData();
+    }
+#endif
+
     virtual void onExecuteBegin() const override;
     virtual void onExecuteEnd() const override;
 
@@ -147,6 +159,10 @@ private:
     std::pair<int, void *> mMapMem;
     bool mUseSvm = false;
     void* allocMapTensorMemory(int length, bool svmFlag = false, cl_device_svm_capabilities svm_cap_ = 0);
+
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+    std::shared_ptr<ProfileResult> profiling_result_;
+#endif
 
 };
 

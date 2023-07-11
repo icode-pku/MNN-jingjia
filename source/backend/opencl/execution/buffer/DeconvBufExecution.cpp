@@ -171,13 +171,24 @@ ErrorCode DeconvBufExecution::onExecute(const std::vector<Tensor *> &inputs, con
 #endif
     
 #ifdef ENABLE_OPENCL_TIME_PROFILER
-    cl::Event event;
+    OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+    ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+    bool flag = false;
+    if (nullptr == profilingData) {
+        profilingData = new ProfilingData();
+        flag = true;
+    }
+    // cl::Event event;
     run3DKernelDefault(mKernel, mGWS, mLWS,
                        mOpenCLBackend->getOpenCLRuntime(),
-                       &event);
+                       &(profilingData->event));
     
-    int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
-    MNN_PRINT("kernel cost:%d    us DeconvBuf\n",costTime);
+    GetProfilingTime(profilingData);
+    if (flag) {
+        delete profilingData;
+    }
+    // int costTime = (int)runtime->getCostTime(&event);
+    // MNN_PRINT("kernel cost:%d    us %s%d\n",costTime, EnumNameOpType(mOpType), idx++);
 #else
     run3DKernelDefault(mKernel, mGWS, mLWS,
                        mOpenCLBackend->getOpenCLRuntime());

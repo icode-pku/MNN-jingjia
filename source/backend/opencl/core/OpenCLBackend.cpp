@@ -257,6 +257,10 @@ OpenCLBackend::OpenCLBackend(std::shared_ptr<ImagePool>imgPool, std::shared_ptr<
         mBufferPool.reset(new BufferPool(mOpenCLRuntime->context(), CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR));
     }
     mMapMem = std::make_pair(0, nullptr);
+    
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+    profiling_result_ = std::make_shared<ProfileResult>();
+#endif
 }
 
 OpenCLBackend::~OpenCLBackend() {
@@ -504,6 +508,12 @@ void OpenCLBackend::onResizeEnd() {
 #endif
 }
 
+void OpenCLBackend::AddProfilingData(std::string layer, std::string op, double tmp_flops) {
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+    profiling_result_->AddProfilingData(layer, op, tmp_flops);
+#endif
+}
+
 void OpenCLBackend::onExecuteBegin() const {
     mOpenCLRuntime->mQueueCount = 0;
     mOpenCLRuntime->mKernelTime = 0;
@@ -511,6 +521,11 @@ void OpenCLBackend::onExecuteBegin() const {
 
 void OpenCLBackend::onExecuteEnd() const {
     mOpenCLRuntime->mQueueCount = 0;
+#ifdef ENABLE_OPENCL_TIME_PROFILER
+    std::string profiling_data = profiling_result_->GetProfilingDataInfo();
+    MNN_PRINT("_________profiling_data_____________\n");
+    MNN_PRINT("%s\n", profiling_data.c_str());
+#endif
 }
 
 

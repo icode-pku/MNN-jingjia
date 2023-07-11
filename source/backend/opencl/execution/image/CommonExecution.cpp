@@ -28,25 +28,35 @@ ErrorCode CommonExecution::onExecute(const std::vector<Tensor *> &inputs, const 
         }
         
     #ifdef ENABLE_OPENCL_TIME_PROFILER
-        cl::Event event;
+        OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+        ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+        bool flag = false;
+        if (nullptr == profilingData) {
+            profilingData = new ProfilingData();
+            flag = true;
+        }
+        // cl::Event event;
         if(lws_null == true) {
             res = runtime->commandQueue().enqueueNDRangeKernel(unit.kernel,
                                                         cl::NullRange,
                                                         unit.globalWorkSize,
                                                         cl::NullRange,
                                                         nullptr,
-                                                        &event);
+                                                        &(profilingData->event));
         } else {
             res = runtime->commandQueue().enqueueNDRangeKernel(unit.kernel,
                                                         cl::NullRange,
                                                         unit.globalWorkSize,
                                                         unit.localWorkSize,
                                                         nullptr,
-                                                        &event);
+                                                        &(profilingData->event));
         }
-        
-        int costTime = (int)runtime->getCostTime(&event);
-        MNN_PRINT("kernel cost:%d    us %s%d\n",costTime, EnumNameOpType(mOpType), idx++);
+        GetProfilingTime(profilingData);
+        if (flag) {
+            delete profilingData;
+        }
+        // int costTime = (int)runtime->getCostTime(&event);
+        // MNN_PRINT("kernel cost:%d    us %s%d\n",costTime, EnumNameOpType(mOpType), idx++);
     #else
         if(lws_null == true) {
             res = runtime->commandQueue().enqueueNDRangeKernel(unit.kernel,

@@ -113,6 +113,11 @@ public:
         // nothing to do
     }
 
+    virtual void AddProfilingData(std::string layer, std::string op, double tmp_flops) {
+        // nothing to do
+        return;
+    }
+
     /**
      * @brief callback before executing ops.
      */

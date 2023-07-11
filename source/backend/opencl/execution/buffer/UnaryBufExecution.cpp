@@ -66,12 +66,23 @@ ErrorCode UnaryBufExecution::onExecute(const std::vector<Tensor*>& inputs, const
     auto mOpenCLBackend = static_cast<OpenCLBackend*>(backend());
     
 #ifdef ENABLE_OPENCL_TIME_PROFILER
-    cl::Event event;
+    OpenCLBackend * cl_backend = (OpenCLBackend *)(backend());
+    ProfilingData *profilingData = cl_backend->GetCurrentProfilingData();
+    bool flag = false;
+    if (nullptr == profilingData) {
+        profilingData = new ProfilingData();
+        flag = true;
+    }
+    // cl::Event event;
     run3DKernelDefault(mKernel, mGlobalWorkSize, mLocalSize,
-                       mOpenCLBackend->getOpenCLRuntime(), &event);
+                       mOpenCLBackend->getOpenCLRuntime(), &(profilingData->event));
     
-    int costTime = (int)mOpenCLBackend->getOpenCLRuntime()->getCostTime(&event);
-    MNN_PRINT("kernel cost:%d    us Unary\n",costTime);
+    GetProfilingTime(profilingData);
+    if (flag) {
+        delete profilingData;
+    }
+    // int costTime = (int)runtime->getCostTime(&event);
+    // MNN_PRINT("kernel cost:%d    us %s%d\n",costTime, EnumNameOpType(mOpType), idx++);
 #else
     run3DKernelDefault(mKernel, mGlobalWorkSize, mLocalSize,
                        mOpenCLBackend->getOpenCLRuntime());
